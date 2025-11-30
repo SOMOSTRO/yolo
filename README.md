@@ -91,10 +91,20 @@ This step is **required** so YOLO and yt-dlp can save downloaded files.
 
 ---
 
-### 3. Update Termux Packages
+### 3. Install Git
 
 ```
+# Termux
 pkg update && pkg upgrade -y
+pkg update
+pkg install git
+
+# Ubuntu / Debian
+sudo apt update
+sudo apt install git
+
+# Arch Linux
+sudo pacman -S git
 ```
 
 ---
@@ -105,7 +115,7 @@ After setting up Termux (or if you are on a supported Linux system), install YOL
 
 ```bash
 git clone https://github.com/somostro/yolo.git
-cd yolo/yolo
+cd yolo
 . ./install.sh
 ```
 
