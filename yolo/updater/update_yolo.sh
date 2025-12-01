@@ -2,8 +2,9 @@
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-YOLO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# updater/ → yolo/ → repo root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+YOLO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 cd "$YOLO_ROOT" || exit 1
 
