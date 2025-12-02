@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Acceptable argument(s):
+#   --nightly : To set yt-dlp channel=nightly
+
 # Colors
 CLR_BLUE='\033[94m'
 CLR_RED='\033[91m'
@@ -31,7 +34,7 @@ echo -e "${CLR_BLUE}Updating yt-dlp...${CLR_RESET}"
 echo -e "${CLR_YELLOW}Current version: ${CURRENT_VERSION}${CLR_RESET}\n"
 
 # Update logic 
-if [ "$MODE" = "nightly" ]; then
+if [ "$MODE" = "--nightly" ]; then
     echo -e "${CLR_BLUE}Installing yt-dlp nightly build...${CLR_RESET}\n"
     INSTALL_CMD="$PY -m pip install -U --force-reinstall \
 https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp.tar.gz"

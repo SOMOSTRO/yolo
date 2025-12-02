@@ -2,24 +2,26 @@
 
 set -e
 
+ok()   { echo -e "[\e[32mOK\e[0m]  $1"; }
+info() { echo -e "[\e[34mINFO\e[0m] $1"; }
+fail() { echo -e "[\e[31mFAIL\e[0m] $1"; exit 1; }
+
 # updater/ → yolo/ → repo root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 YOLO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 cd "$YOLO_ROOT" || exit 1
 
-echo "🔍 Checking YOLO installation..."
+info "Checking YOLO installation..."
 
 if [ ! -d ".git" ]; then
-  echo "❌ YOLO is not installed via git"
-  echo "❌ Update cannot continue"
-  exit 1
+  fail "YOLO is not installed via git, update cannot continue."
 fi
 
-echo "📡 Fetching latest changes..."
+info "Fetching latest changes..."
 git fetch origin
 
-echo "⬇️ Pulling updates..."
+info "Pulling updates..."
 git pull origin main
 
-echo "✅ YOLO update completed"
+ok "YOLO update completed"

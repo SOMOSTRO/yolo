@@ -34,7 +34,7 @@ def PRINT_LOGO():
   """Print YOLO banner"""
   
   # YOLO version
-  version = "1.1.2"
+  version = "1.1.3"
   
   _1 = f'\033[38;2;204;153;153m' # Magenta
   _2 = f'\033[38;2;204;153;204m' # Lilac
