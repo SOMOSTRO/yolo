@@ -31,12 +31,13 @@ FINAL_FILENAME = None
 FINAL_TITLE = None # filename without ext
 FINAL_EXT = None
 
+
 # function to print program banner/logo
 def PRINT_LOGO():
   """Print YOLO banner"""
   
   # YOLO version
-  version = "1.1.4"
+  version = "1.1.5"
   
   _1 = f'\033[38;2;204;153;153m' # Magenta
   _2 = f'\033[38;2;204;153;204m' # Lilac
@@ -106,28 +107,30 @@ def format_filename(filename):
   """Extracts and returns the file name from a full file path."""
   return filename.rsplit('/', 1)[1]
   
-def sanitize_filename(title, max_length=150):
+def sanitize_filename(title, max_bytes=240):
   """
+  Sanitize a string for safe use as a filename.
+
+  This function:
+  - Normalizes Unicode characters to NFKC form to fix inconsistent encodings.
+  - Replaces characters that are unsafe for filenames (e.g., / \\ : * ? " < > | #) with underscores.
+  - Collapses multiple spaces into a single space and trims leading/trailing whitespace.
+  - Truncates the filename to maximum bytes to avoid filesystem limits (240 is safe for most FS, 255 - some room for extension and other FS specific characters.
+  - Applies yt-dlp's internal filename sanitization for additional safety.
+
+  Args:
+      title (str): The input string to be converted into a safe filename.
+      max_bytes (int, optional): Maximum byte length of the filename. Defaults to 240.
+
+  Returns:
+      str: A sanitized, filesystem-safe filename string.
   """
   
-  # Normalize unicode (keep text, but fixes weird encoding forms)
+  if DEBUG:
+    sfn_start = time.perf_counter()
+  
+  # Normalize unicode
   title = unicodedata.normalize("NFKC", title)
-  
-  # Remove emojis
-  emoji_pattern = re.compile(
-    "["
-    "\U0001F600-\U0001F64F"  # emoticons
-    "\U0001F300-\U0001F5FF"  # symbols & pictographs
-    "\U0001F680-\U0001F6FF"  # transport & map
-    "\U0001F700-\U0001F77F"
-    "\U0001F780-\U0001F7FF"
-    "\U0001F800-\U0001F8FF"
-    "\U0001F900-\U0001F9FF"
-    "\U0001FA00-\U0001FAFF"
-    "]+",
-    flags=re.UNICODE
-  )
-  title = emoji_pattern.sub("", title)
   
   # Replace unsafe filename characters
   unsafe_chars = r'[\/:*?"<>|#]'
@@ -136,12 +139,29 @@ def sanitize_filename(title, max_length=150):
   # Collapse multiple spaces into one
   title = re.sub(r'\s+', ' ', title).strip()
 
-  # Enforce max filename length
-  if len(title) > max_length:
-    title = title[:max_length].rstrip()
+  # Enforce max filename byte limit
+  # Encode the title to bytes
+  encoded_title = title.encode('utf-8')
+  
+  # Truncate the byte array
+  if len(encoded_title) > max_bytes:
+    truncated_bytes = encoded_title[:max_bytes]
     
+    # Decode truncated bytes (skip any incomplete multi-byte sequence at the end)
+    title = truncated_bytes.decode('utf-8', errors='ignore')
+    
+  # Remove trailing "." (dots), " " (whitespaces) and "_" (underscores)
+  title = title.strip("._ ")
+  
+  # Return placeholder if title is empty
+  if not title: return "media"
+  
   # Using yt_dlp sanitize_filename function
   title = _ytdlp_sanitize(title)
+  
+  if DEBUG:
+    print(f"{CLR_DIM}sanitized filename: {title}")
+    print(f"sanitize_filename execution time: {(time.perf_counter()-sfn_start)*1000:.2f} ms{CLR_RESET}")
   
   # return sanitized file name
   return title
@@ -502,6 +522,8 @@ def choice_input_handler(options_file_size, options_details):
       SystemExit: If the user cancels the operation.
   """
   
+    # *here arguments are referred as attributes.
+  
     # choice/options attributes and its values
   options_attributes = {
     "video": {
@@ -620,10 +642,6 @@ def choice_input_handler(options_file_size, options_details):
   {choice_description['high']}
   {choice_description['audio']}
   """)
-  
- 
- 
-
 
 
   
@@ -699,18 +717,19 @@ def choice_input_handler(options_file_size, options_details):
 
       if value in ALLOWED_FORMATS:
         set_FINAL_FILENAME(choice, value)
-        # set metadata=false for unsupported and metadata=true for supported formats
+        # set metadata=false for unsupported formats
         if value in ('opus', 'wav'):
           options_attributes["audio"]["metadata"] = False
+        # set metadata=true for supported formats
         else:
           options_attributes["audio"]["metadata"] = True
         return value
+      
       raise ValueError(f"Invalid value (format: '{value}').{AVAILABLE_AUDIO_FORMATS_DESCRIPTION}")
     
     def validate_video_format(value, choice):
       value = value.strip().lower()
       ALLOWED_FORMATS = {"best", "mp4", "mkv", "webm"}
-
 
       if value in ALLOWED_FORMATS:
         set_FINAL_FILENAME(choice, value)
@@ -722,10 +741,15 @@ def choice_input_handler(options_file_size, options_details):
         if value == "webm":
           options_attributes["video"]["thumbnail"]["enabled"] = False
           options_attributes["video"]["metadata"] = False
-        
+        else:
+          options_attributes["video"]["thumbnail"]["enabled"] = True
+          options_attributes["video"]["metadata"] = True
         # set subtitlesformat='srt' for mkv format
         if value == 'mkv':
           options_attributes["video"]["subtitles"]["subtitlesformat"] = "srt"
+        # set subtitlesformat='ttxt' for mp4 format
+        elif value == 'mp4':
+          options_attributes["video"]["subtitles"]["subtitlesformat"] = "ttxt"
         
         return value
       
@@ -904,10 +928,10 @@ def choice_input_handler(options_file_size, options_details):
       if FINAL_EXT == 'mp4' and options_attributes["video"]["subtitles"]["enabled"]:
         print(f"{CLR_WARNING}Warning: Subtitles may not appear in some players for MP4 files. For better compatibility, use MKV format.{CLR_RESET}")
         
-              
-    
     # return the function if all validations pass
     return True, None
+
+
   
   while True:
     user_input = prompt_screen()

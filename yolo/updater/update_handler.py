@@ -55,7 +55,7 @@ def update(command: str):
     _run_script(YOLO_SCRIPT)
     
     print(f"Updated YOLO version: {CLR_GREEN}{get_version()} ({get_channel()}){CLR_RESET}")
-    print(print_crossline())
+    print(print_crossline("–"))
 
   # update yt-dlp
   if update_ytdlp:
@@ -63,7 +63,7 @@ def update(command: str):
     print(f"{CLR_BRIGHT_GREEN}• Updating yt-dlp ({'nightly' if nightly else 'stable'})...{CLR_RESET}")
     args = ["--nightly"] if nightly else []
     _run_script(YTDLP_SCRIPT, args)
-    print(print_crossline())
+    print(print_crossline("–"))
 
   print(f"\n{CLR_BRIGHT_GREEN}Update process finished.{CLR_RESET}")
   print("Exiting...")

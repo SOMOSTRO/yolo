@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# YOLO Installer Script
+# YOLO installer and configuration script
 
 set -e
 
@@ -39,7 +39,7 @@ command_exists() {
 }
 
 install_msg() {
-    echo -e "${CLR_YELLOW}→ $1${CLR_RESET}"
+    echo -e "${CLR_BLUE}• $1...${CLR_RESET}"
 }
 
 skip_msg() {
@@ -161,6 +161,7 @@ echo
 # -----------
 install_msg "Setting executable permissions"
 
+chmod +x install.sh
 chmod +x run.sh
 chmod +x yolo/updater/*.sh
 
@@ -175,7 +176,7 @@ if [[ -n "$ZSH_VERSION" ]]; then
 fi
 
 if grep -q "alias yolo=" "$SHELL_RC" 2>/dev/null; then
-    skip_msg "Alias 'yolo'"
+    echo -e "${CLR_GREEN}Alias 'yolo' already added${CLR_RESET}"
 else
     install_msg "Adding 'yolo' alias"
     echo "alias yolo='$PROJECT_ROOT/run.sh'" >> "$SHELL_RC"
@@ -188,11 +189,11 @@ echo
 
 # Final verification
 # ------------------
-echo -e "${CLR_BLUE}Installation Complete ✅${CLR_RESET}"
+echo -e "${CLR_GREEN}Installation Complete${CLR_RESET}"
 echo
 echo "Versions:"
-echo "  Python   : $(python3 --version)"
-echo "  yt-dlp   : $(yt-dlp --version)"
-echo "  FFmpeg   : $(ffmpeg -version | head -n 1)"
+echo "  Python : $(python3 --version)"
+echo "  yt-dlp : $(yt-dlp --version)"
+echo "  FFmpeg : $(ffmpeg -version | head -n 1)"
 echo
 echo -e "${CLR_GREEN}Run 'yolo' to start the program.${CLR_RESET}"
