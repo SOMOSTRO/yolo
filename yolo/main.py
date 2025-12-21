@@ -37,7 +37,7 @@ def PRINT_LOGO():
   """Print YOLO banner"""
   
   # YOLO version
-  version = "1.1.5"
+  version = "1.1.6"
   
   _1 = f'\033[38;2;204;153;153m' # Magenta
   _2 = f'\033[38;2;204;153;204m' # Lilac
@@ -219,7 +219,7 @@ def init():
     if arg in ("--debug", "-d"):
       DEBUG = True
     else:
-      print(f"{CLR_ERROR}Unknown argument: '{arg}'. Usage: main.py [--debug | -d]{CLR_RESET}")
+      print(f"{CLR_ERROR}Unknown argument: '{arg}'. Usage: yolo [--debug | -d]{CLR_RESET}")
       
   # print(f"{CLR_DIM}Preload execution time: {(time.perf_counter()-start)*1000:.2f} ms{CLR_RESET}")
       
@@ -1316,3 +1316,4 @@ if __name__ == "__main__":
   
   # calling main download function
   download_media(url)
+  

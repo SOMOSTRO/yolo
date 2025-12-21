@@ -96,7 +96,6 @@ This step is **required** so YOLO and yt-dlp can save downloaded files.
 ```
 # Termux
 pkg update && pkg upgrade -y
-pkg update
 pkg install -y git
 
 # Ubuntu / Debian
@@ -116,7 +115,7 @@ After setting up Termux (or if you are on a supported Linux system), install YOL
 ```bash
 git clone https://github.com/somostro/yolo.git
 cd yolo
-. ./install.sh
+bash install.sh
 ```
 
 **What this does**:

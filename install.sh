@@ -157,6 +157,13 @@ fi
 
 echo
 
+# Compilation (python files)
+# --------------------------
+echo -e "${CLR_BLUE}Compiling python files...${CLR_RESET}"
+python3 -m compileall -f -q yolo/
+
+echo
+
 # Permissions
 # -----------
 install_msg "Setting executable permissions"
