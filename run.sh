@@ -31,7 +31,7 @@ else
 fi
 
 # Clear terminal screen
-# clear
+clear
 
 # Run YODO as a module
 exec "$PY" -m yodo.main "$@"

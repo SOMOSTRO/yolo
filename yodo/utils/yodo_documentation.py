@@ -8,7 +8,7 @@ from yodo.utils.terminal_utils import print_crossline, center_title
 ATTRS_HELP_DESCRIPTION = f"""{CLR_RESET}{center_title(f'{CLR_BOLD}Arguments Usage Guide{CLR_RESET}', '–')}
   
   {CLR_BRIGHT_CYAN}Syntax:   {CLR_CYAN}<choice> <argument>=<value>
-  {CLR_BRIGHT_CYAN}Example:  {CLR_CYAN}high quality=4K{CLR_RESET}
+  {CLR_BRIGHT_CYAN}Example:  {CLR_CYAN}high quality=4K format=mkv{CLR_RESET}
     
   {CLR_BRIGHT_GREEN}Available Arguments:{CLR_RESET}
     • {CLR_BRIGHT_GREEN}quality{CLR_RESET}:

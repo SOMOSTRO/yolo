@@ -7,7 +7,7 @@ import time
 # from threading import Thread
 
 # benchmark for debugging
-start = time.perf_counter()
+_perf_startup_time_start = time.perf_counter()
 
 # YODO built-in modules/functions
 from yodo.utils.colors import * # import required on top level
@@ -20,8 +20,10 @@ os.environ["YTDLP_JS_RUNTIME"] = "deno"
 # to go back to previous line, move up 1 line
 move_up_1_line = "\x1b[1A"
 
-# Global DEBUG var (verbose mode)
+# Global DEBUG var
 DEBUG = False
+# Global VERBOSE var
+VERBOSE = False
 
 # var for tracking loader
 is_info_loaded = False
@@ -89,11 +91,11 @@ def codec_to_ext(acodec):
   }
   return mapping.get(acodec, "m4a")  # default safe fallback
 
-# function for displaying loader for fetch details
+# function for displaying loader for fetch media information
 def display_fetch_loader():
   """Display a loading indicator while video information is being fetched."""
   
-  print(f"{CLR_BRIGHT_BLUE}{CLR_ITALIC}Fetching video information", end='', flush=True)
+  print(f"{CLR_BRIGHT_BLUE}{CLR_ITALIC}Fetching media information", end='', flush=True)
   dots = 0
   while not is_info_loaded:
     time.sleep(.5)
@@ -162,8 +164,8 @@ def sanitize_filename(title, max_bytes=240):
   title = _ytdlp_sanitize(title)
   
   if DEBUG:
-    print(f"{CLR_DIM}sanitized filename: {title}")
-    print(f"sanitize_filename execution time: {(time.perf_counter()-sfn_start)*1000:.2f} ms{CLR_RESET}")
+    print(f"{CLR_DIM}[debug] sanitized filename: {title}")
+    print(f"[perf] Filename sanitization: {(time.perf_counter()-sfn_start)*1000:.2f} ms{CLR_RESET}")
   
   # return sanitized file name
   return title
@@ -215,13 +217,17 @@ def init():
   
   # debugging logic
   global DEBUG
+  global VERBOSE
   # check if arguments passed
   if len(sys.argv) > 1:
-    arg = sys.argv[1].lower()
-    if arg in ("--debug", "-d"):
-      DEBUG = True
-    else:
-      print(f"{CLR_ERROR}Unknown argument: '{arg}'. Usage: yodo [--debug | -d]{CLR_RESET}")
+    for arg in sys.argv[1:]:
+      arg = arg.lower()
+      if arg in ("--debug", "-d"):
+        DEBUG = True
+      elif arg in ("--verbose", "-v"):
+        VERBOSE = True
+      else:
+        print(f"{CLR_ERROR}Unknown argument: '{arg}'. Usage: yodo [--debug | -d] [--verbose | -v]{CLR_RESET}")
       
   # print(f"{CLR_DIM}Preload execution time: {(time.perf_counter()-start)*1000:.2f} ms{CLR_RESET}")
       
@@ -354,19 +360,19 @@ def fetch_details(url, options):
   
   global is_info_loaded
   
-  loader_thread = Thread(target=display_fetch_loader, daemon=True)
-  loader_thread.start() # start the loader
+  # Display media fetch loader
+  if not VERBOSE:
+    loader_thread = Thread(target=display_fetch_loader, daemon=True)
+    loader_thread.start() # start the loader
+  # if VERBOSE enabled, display media fetch details (in verbose mode)
+  else:
+    print(center_title(f"{CLR_BRIGHT_BLUE}Fetch Media Information{CLR_RESET}"))
   
   try:
-    # reset color styles for verbose output in debug mode
-    if DEBUG:
-      print(CLR_RESET, CLR_DIM)
-    info_load_time = time.perf_counter()
-    
-    # fetch details yt-dlp options
+    # fetch info yt-dlp options
     INFO_YDL_OPTS = {
-      "verbose": DEBUG,
-      "quiet": not DEBUG,
+      "verbose": VERBOSE,
+      "quiet": not VERBOSE,
       "skip_download": True,
       "no_warnings": not DEBUG,
       "remote_components": {"ejs:github"},
@@ -379,13 +385,24 @@ def fetch_details(url, options):
       "js_runtime": "deno"
     }
     with YoutubeDL(INFO_YDL_OPTS) as ydl:
+      # track loading time of fetching info
+      if DEBUG:
+        info_load_time = time.perf_counter()
+      
       info = ydl.extract_info(url, download=False)
       
-      is_info_loaded = True
-      loader_thread.join() # Wait for loader to finish cleanly
-      print(f"{CLR_RESET}{CLR_BRIGHT_BLUE}✓done.{CLR_RESET}") # loading finished
+      if not VERBOSE:
+        is_info_loaded = True
+        loader_thread.join() # Wait for loader to finish cleanly
+        print(f"{CLR_RESET}{CLR_BRIGHT_BLUE}✓done.{CLR_RESET}") # loading finished
+      
+      # print crossline if verbose mode enabled
+      if VERBOSE:
+        print(print_crossline())
+      
       if DEBUG:
-        print(f"{CLR_DIM}Fetch information load time: {(time.perf_counter() - info_load_time)*1000:.2f} ms{CLR_RESET}")
+        # reset color styles for output in debug mode
+        print(f"{CLR_DIM}[perf] Fetch metadata: {(time.perf_counter() - info_load_time):.2f} s{CLR_RESET}")
       
       # get video information and print
       formats = info.get("formats", None)
@@ -421,7 +438,11 @@ def fetch_details(url, options):
           chosen = list(selector(info))
           
           if DEBUG:
-            print(f"{CLR_DIM}{label} chosen formats:", [f.get("format_id") for f in chosen], CLR_RESET)
+            _chosen_formats = [f.get("format_id") for f in chosen]
+            if _chosen_formats:
+              print(f"{CLR_DIM}[debug] {label} chosen formats:", _chosen_formats, CLR_RESET)
+            else:
+              print(f"{CLR_DIM}[debug] No valid formats found for option: {label}{CLR_RESET}")
           
           if not chosen:
             options_file_size[label] = f"{CLR_ERROR}Not available{CLR_RESET}"
@@ -477,12 +498,12 @@ def fetch_details(url, options):
             options_file_size[label] = f"{size_str} ({' + '.join(part_sizes)})"
         except Exception as e:
           if DEBUG:
-            print(f"{CLR_DIM}EXCEPTION: {e}{CLR_RESET}")
+            print(f"{CLR_DIM}[debug] Skipping incomplete formats for '{label}'{CLR_RESET}")
           options_file_size[label] = f"{CLR_ERROR}Not available{CLR_RESET}"
       
       # debugging
       if DEBUG:
-        print(f"{CLR_DIM}for loop exec time: {(time.perf_counter()-for_start)*1000:.2f} ms{CLR_RESET}")
+        print(f"{CLR_DIM}[perf] Format selection loop: {(time.perf_counter()-for_start)*1000:.2f} ms{CLR_RESET}")
       
   except Exception as e:
     error = str(e).lower()
@@ -580,7 +601,7 @@ def choice_input_handler(options_file_size, options_details):
     FINAL_FILENAME = FINAL_TITLE
     FINAL_FILENAME = f"{FINAL_FILENAME}.{ext}"
     if DEBUG:
-      print(f"{CLR_DIM}FINAL_FILENAME:  {FINAL_FILENAME}{CLR_RESET}")
+      print(f"{CLR_DIM}[debug] FINAL_FILENAME: {FINAL_FILENAME}{CLR_RESET}")
   
   
   details = {'low': {'video': "", 'audio': ""}, 'medium': {'video': "", 'audio': ""}, 'high': {'video': "", 'audio': ""}, 'audio': {'video': "", 'audio': ""}}
@@ -784,7 +805,7 @@ def choice_input_handler(options_file_size, options_details):
       
       raise ValueError(f"Invalid value (format: '{value}').\n{AVAILABLE_VIDEO_FORMATS_DESCRIPTION}")
       
-    def validate_thumbnail(value, key):
+    def validate_thumbnail(value, choice):
       value = value.strip().lstrip(".").lower()
       
       # logic if the value is boolean
@@ -798,13 +819,13 @@ def choice_input_handler(options_file_size, options_details):
       ext = value
       if ext not in ALLOWED_THUMB_EXT:
         if value == 'help':
-          raise ValueError(AUDIO_THUMB_DESCRIPTION if key == 'audio' else VIDEO_THUMB_DESCRIPTION)
-        raise ValueError(f"Invalid thumbnail image format (extension: '{ext}').\n{AUDIO_THUMB_DESCRIPTION if key == 'audio' else VIDEO_THUMB_DESCRIPTION}")
+          raise ValueError(AUDIO_THUMB_DESCRIPTION if choice == 'audio' else VIDEO_THUMB_DESCRIPTION)
+        raise ValueError(f"Invalid thumbnail image format (extension: '{ext}').\n{AUDIO_THUMB_DESCRIPTION if choice == 'audio' else VIDEO_THUMB_DESCRIPTION}")
       # normalise ext
       if ext == "jpeg": ext = "jpg"
       return True, ext
     
-    def validate_metadata(value, key):
+    def validate_metadata(value, choice):
       value = value.strip().lower()
       if value in ('true', '1', 'yes', 'y'):
         return True
@@ -812,8 +833,8 @@ def choice_input_handler(options_file_size, options_details):
         return False
       
       if value == 'help':
-        raise ValueError(AUDIO_METADATA_DESCRIPTION if key == 'audio' else VIDEO_METADATA_DESCRIPTION)
-      raise ValueError(f"Invalid value (metadata: '{value}').\n{AUDIO_METADATA_DESCRIPTION if key == 'audio' else VIDEO_METADATA_DESCRIPTION}")
+        raise ValueError(AUDIO_METADATA_DESCRIPTION if choice == 'audio' else VIDEO_METADATA_DESCRIPTION)
+      raise ValueError(f"Invalid value (metadata: '{value}').\n{AUDIO_METADATA_DESCRIPTION if choice == 'audio' else VIDEO_METADATA_DESCRIPTION}")
     
     def validate_subtitles(value):
       value = value.strip().lower()
@@ -891,13 +912,13 @@ def choice_input_handler(options_file_size, options_details):
               return False, e
           elif attr.startswith('thumbnail'):
             try:
-              is_enabled, ext = validate_thumbnail(value, key)
+              is_enabled, ext = validate_thumbnail(value, choice)
               options_attributes["audio"]["thumbnail"] = {"enabled": is_enabled, "ext": ext}
             except ValueError as e:
               return False, e
           elif attr.startswith('metadata'):
             try:
-              is_enabled = validate_metadata(value, key)
+              is_enabled = validate_metadata(value, choice)
             except ValueError as e:
               return False, e
             
@@ -936,13 +957,13 @@ def choice_input_handler(options_file_size, options_details):
               return False, e
           elif attr.startswith('thumbnail'):
             try:
-              is_enabled, ext = validate_thumbnail(value, key)
+              is_enabled, ext = validate_thumbnail(value, choice)
               options_attributes["video"]["thumbnail"] = {"enabled": is_enabled, "ext": ext}
             except ValueError as e:
               return False, e
           elif attr.startswith('metadata'):
             try:
-              is_enabled = validate_metadata(value, key)
+              is_enabled = validate_metadata(value, choice)
               options_attributes["video"]["metadata"] = is_enabled
             except ValueError as e:
               return False, e
@@ -995,7 +1016,7 @@ def choice_input_handler(options_file_size, options_details):
       ok, error_msg = opt_attr_handler(user_input)
       
       if DEBUG:
-        print("options_attributes:", options_attributes)
+        print(f"{CLR_DIM}[debug] options_attributes:", options_attributes, CLR_RESET)
       
       # print error message
       if not ok:
@@ -1009,7 +1030,7 @@ def choice_input_handler(options_file_size, options_details):
     else:
       print(
         f"{CLR_WARNING}"
-        f"The choice '{choice}' is not available. Please choose another."
+        f"The choice '{choice}' is not available for this media."
         f"{CLR_RESET}"
       )
       continue
@@ -1271,7 +1292,7 @@ def download_media(url, download_dir="/storage/emulated/0/YODO"):
         }
       },
     "js_runtime": "ejs",
-    "verbose": DEBUG, # only if DEBUG enabled
+    "verbose": VERBOSE,
     # "extractor_args": {
     #   "youtube": {
     #     "player_client": ["ios", "web", "tv_embedded"],
@@ -1357,7 +1378,7 @@ if __name__ == "__main__":
   # initialisation function call
   preload_modules_thread = init()
   
-  print(f"{CLR_DIM}Execution time: {(time.perf_counter()-start)*1000:.2f} ms{CLR_RESET}")
+  print(f"{CLR_DIM}[perf] Startup time: {(time.perf_counter()-_perf_startup_time_start)*1000:.2f} ms{CLR_RESET}")
   
   # user input handler
   url = url_input_handler()
@@ -1378,7 +1399,7 @@ if __name__ == "__main__":
   # YODO built-in modules/functions
   from yodo.utils.yodo_documentation import *
   from yodo.utils.prompt_validator import prompt_screen
-  from yodo.utils.terminal_utils import print_crossline
+  from yodo.utils.terminal_utils import print_crossline, center_title
   
   # calling main download function
   download_media(url)
