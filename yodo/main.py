@@ -20,10 +20,11 @@ os.environ["YTDLP_JS_RUNTIME"] = "deno"
 # to go back to previous line, move up 1 line
 move_up_1_line = "\x1b[1A"
 
-# Global DEBUG var
+# Default configuration
 DEBUG = False
-# Global VERBOSE var
 VERBOSE = False
+DOWNLOAD_DIR = None
+VERSION = "1.2.0"
 
 # var for tracking loader
 is_info_loaded = False
@@ -38,9 +39,6 @@ FINAL_EXT = None
 def PRINT_LOGO():
   """Print YODO banner"""
   
-  # YODO version
-  version = "1.1.8"
-  
   _1 = '\033[38;2;255;153;204m'  # Pink
   _2 = '\033[38;2;230;153;230m'  # Soft Violet
   _3 = '\033[38;2;204;153;255m'  # Violet
@@ -54,7 +52,7 @@ def PRINT_LOGO():
   {_3} \ \_/ /| |  | || |  | || |  | |
   {_4}  \   / | |  | || |  | || |  | |
   {_5}   | |  | |__| || |__| || |__| |
-  {_6}   |_|   \____/ |_____/  \____/  {CLR_RESET}Version: {version}
+  {_6}   |_|   \____/ |_____/  \____/  {CLR_RESET}Version: {VERSION}
   """)
 
 # print_space
@@ -106,10 +104,6 @@ def display_fetch_loader():
       print(f"\b\b\b   \b\b\b", end='', flush=True)
       dots = 0
   print(f"{'\b'*dots + ' '*dots + '\b'*dots}{CLR_RESET}", end='\t', flush=True)
-  
-def format_filename(filename):
-  """Extracts and returns the file name from a full file path."""
-  return filename.rsplit('/', 1)[1]
   
 def sanitize_filename(title, max_bytes=240):
   """
@@ -170,13 +164,113 @@ def sanitize_filename(title, max_bytes=240):
   # return sanitized file name
   return title
 
+def resolve_download_dir(cli_dir = None):
+  """
+  Resolve and validate the download directory.
+
+  Rules:
+  - Absolute paths are respected
+  - '~' is expanded
+  - Relative paths are redirected to platform-safe base directory
+  - Project root is never used for downloads
+  """
+  
+  PROJECT_ROOT = os.path.abspath(".")
+  
+  def normalize(path):
+    return os.path.abspath(os.path.expanduser(path))
+
+  def is_inside_project(path):
+    return os.path.commonpath([path, PROJECT_ROOT]) == PROJECT_ROOT
+
+  # Platform detection
+  is_termux = (
+    os.getenv("PREFIX") is not None or
+    os.path.exists("/data/data/com.termux/files/usr")
+  )
+
+  safe_base = (
+    "/storage/emulated/0" if is_termux else os.path.expanduser("~")
+  )
+
+  # CLI argument
+  if cli_dir:
+    expanded = os.path.expanduser(cli_dir)
+
+    # Absolute path → accept (after validation)
+    if os.path.isabs(expanded):
+      final = normalize(expanded)
+    else:
+      # Relative path → redirect to safe base
+      final = normalize(os.path.join(safe_base, expanded))
+
+  else:
+    # Env var
+    env_dir = os.getenv("DOWNLOAD_DIR")
+    if env_dir:
+      expanded = os.path.expanduser(env_dir)
+      if os.path.isabs(expanded):
+        final = normalize(expanded)
+      else:
+        final = normalize(os.path.join(safe_base, expanded))
+    else:
+      # Default
+      final = os.path.join(safe_base, "YODO")
+
+  if DEBUG:
+    print(f"{CLR_DIM}[debug] Download directory: '{final}'{CLR_RESET}")
+  
+  # Final safety check
+  if is_inside_project(final):
+    print(f"{CLR_ERROR}Runtime Error: Download directory cannot be inside YODO project directory{CLR_RESET}")
+  
+  # Ensure DOWNLOAD_DIR is valid and accessible
+  ensure_dir_exists(final)
+    
+  return final
+
+def ensure_dir_exists(download_dir):
+  "Ensure and make directories exists. Throw and catch errors if download_dir is not accessible or invalid."
+  
+  def fatal_error(message):
+    print(center_title(f"{CLR_ERROR}Exception{CLR_RESET}"))
+    print(message)
+    print(print_crossline())
+    sys.exit(1)
+  
+  try:
+    os.makedirs(download_dir, exist_ok=True)
+  
+  except PermissionError:
+    fatal_error(
+      f"{CLR_ERROR}Permission denied while creating download directory: {CLR_RESET}"
+      f"'{download_dir}'\n"
+      f"Try choosing a directory you have access to."
+    )
+  
+  except FileNotFoundError:
+    fatal_error(
+      f"{CLR_ERROR}Invalid download path: {CLR_RESET}"
+      f"'{download_dir}'\n\n"
+      f"The parent directory does not exist.\n"
+      f"On Android (Termux), use paths like: "
+      f"'/storage/emulated/0/YODO'"
+    )
+  
+  except OSError as e:
+    fatal_error(
+      f"{CLR_ERROR}Failed to create download directory:{CLR_RESET}\n"
+      f"  {download_dir}\n"
+      f"Reason: {e.strerror}"
+    )
+
 # initialisation function.
 def init():
   """
   Initialize application state and start background preloading.
 
   • Starts a daemon thread to lazily preload required modules
-  • Parses command-line arguments to enable debug mode
+  • Parses command-line arguments
   • Exposes the Thread class globally
 
   Returns:
@@ -215,19 +309,29 @@ def init():
   preload_modules_thread = Thread(target=preload_modules, daemon=True)
   preload_modules_thread.start()
   
-  # debugging logic
-  global DEBUG
-  global VERBOSE
-  # check if arguments passed
+  # optimization: parse arguments only if user has given atleast one argument
   if len(sys.argv) > 1:
-    for arg in sys.argv[1:]:
-      arg = arg.lower()
-      if arg in ("--debug", "-d"):
-        DEBUG = True
-      elif arg in ("--verbose", "-v"):
-        VERBOSE = True
-      else:
-        print(f"{CLR_ERROR}Unknown argument: '{arg}'. Usage: yodo [--debug | -d] [--verbose | -v]{CLR_RESET}")
+    global DEBUG, VERBOSE, DOWNLOAD_DIR
+    
+    # Parse command line arguments
+    from yodo.cli import parse_cli_args
+    
+    #_start = time.perf_counter()
+    
+    args = parse_cli_args(VERSION)
+    
+    #print(f"{CLR_DIM}[perf] parse cli arguments: {(time.perf_counter()-_start)*1000:.2f} ms{CLR_RESET}")
+    
+    DEBUG = args.debug
+    VERBOSE = args.verbose
+    DOWNLOAD_DIR = args.download_dir
+    
+    # Rule: debug implies verbose
+    if DEBUG and not VERBOSE:
+      VERBOSE = True
+      
+    if DEBUG:
+      print(f"{CLR_DIM}[info] CLI mode detected{CLR_RESET}")
       
   # print(f"{CLR_DIM}Preload execution time: {(time.perf_counter()-start)*1000:.2f} ms{CLR_RESET}")
       
@@ -311,7 +415,7 @@ def url_input_handler():
       print("Exiting...")
       sys.exit()
     if not user_input:
-      print(f"{CLR_WARNING}URL cannot be empty. Please enter valid video/audio link{CLR_RESET}\n")
+      print(f"{CLR_WARNING}URL cannot be empty. Please enter a valid video/audio link{CLR_RESET}\n")
       continue
     if "instagram.com/p" in user_input:
       print(f"{CLR_ERROR}Instagram post cannot be downloaded.{CLR_RESET}\n")
@@ -507,7 +611,7 @@ def fetch_details(url, options):
       
   except Exception as e:
     error = str(e).lower()
-    print("\n",print_crossline(), sep='')
+    print("\n", center_title(f"{CLR_ERROR}Exception{CLR_RESET}"), sep='')
     if "unable to download" in error:
       print(f"{CLR_ERROR}Unable to fetch information. Please check your internet connection and try again.{CLR_RESET}")
     elif "unsupported" in error:
@@ -519,7 +623,7 @@ def fetch_details(url, options):
     elif "extracterror" in error or "forbidden" in error:
       print(f"{CLR_ERROR}Could not extract video information. The site may have changed — try updating yt-dlp.{CLR_RESET}")
     else:
-      print(f"{CLR_ERROR}An unexpected error occurred while fetching video information:\n{e}{CLR_RESET}")
+      print(f"{CLR_ERROR}An unexpected error occurred while fetching media information:\n{e}{CLR_RESET}")
     
     print(print_crossline())
     print("Exiting...")
@@ -895,7 +999,7 @@ def choice_input_handler(options_file_size, options_details):
           return False, ATTRS_HELP_DESCRIPTION
         # check if the key is valid
         elif key not in ALLOWED_AUDIO_ATTRS:
-          return False, f"Unknown attribute '{attr}'.\n{ATTRS_HELP_DESCRIPTION}"
+          return False, f"Unknown argument '{attr}'.\n{ATTRS_HELP_DESCRIPTION}"
         
         if sep:
           if attr.startswith('quality'):
@@ -940,7 +1044,7 @@ def choice_input_handler(options_file_size, options_details):
           return False, ATTRS_HELP_DESCRIPTION
         # check if the key is valid
         if key not in ALLOWED_VIDEO_ATTRS:
-          return False, f"Unknown attribute '{attr}'.\n {ATTRS_HELP_DESCRIPTION}"
+          return False, f"Unknown argument '{attr}'.\n {ATTRS_HELP_DESCRIPTION}"
         
         if sep:
           if attr.startswith('quality'):
@@ -1029,9 +1133,10 @@ def choice_input_handler(options_file_size, options_details):
     # if choice is not available
     else:
       print(
-        f"{CLR_WARNING}"
-        f"The choice '{choice}' is not available for this media."
-        f"{CLR_RESET}"
+        f"{CLR_WARNING}",
+        f"The choice '{choice}' is not available for this media.",
+        f"{CLR_RESET}",
+        sep='\n'
       )
       continue
     
@@ -1075,26 +1180,30 @@ def choice_input_handler(options_file_size, options_details):
   return {"choice": choice, "options_attributes": options_attributes}
 
 # main function
-def download_media(url, download_dir="/storage/emulated/0/YODO"):
+def download_media(url):
   """
   Download media (video or audio) from a given URL using yt-dlp.
 
-  This function fetches available media formats, displays size and quality options to the user, and allows customization of download attributes such as quality, format, thumbnails, metadata, and subtitles. Based on the user’s selection, it configures yt-dlp options and downloads the media to the appropriate output directory.
+  This function fetches available media formats, displays size and quality options to the user, and allows customization of download attributes such as quality, format, thumbnails, metadata, and subtitles. Based on the user’s selection, it configures yt-dlp options and media is downloaded accordingly.
   
-  Audio and video downloads are stored in separate subfolders under the provided download directory.
+  The base download directory is resolved dynamically using the following priority order:
+    1. Command-line argument (--download-dir)
+    2. Environment variable (DOWNLOAD_DIR)
+    3. Platform-specific default:
+       - Termux (Android): /storage/emulated/0/YODO
+       - Linux: ~/YODO
+
+    Downloaded files are organized into separate subdirectories for video and audio under the resolved base directory.
 
   Args:
     url (str): Media URL to download from.
-    download_dir (str, optional): Base directory for downloads.
-        Defaults to "/storage/emulated/0/YODO".
-
   Exits:
     Terminates the program if the user cancels the operation or if a critical download or postprocessing error occurs.
   """
   
-  # Ensure the download directory exists
-  os.makedirs(download_dir, exist_ok=True)
-
+  download_dir = resolve_download_dir(DOWNLOAD_DIR)
+    
+  
   # Categories
   options = {
     # try 360p, else 480p (muxed). then fallback to < 480p merged video+audio
@@ -1268,10 +1377,10 @@ def download_media(url, download_dir="/storage/emulated/0/YODO"):
   # setting download directory/path
   if choice == "audio":
     download_dir = os.path.join(download_dir, "audio")
-    os.makedirs(download_dir, exist_ok=True)
+    ensure_dir_exists(download_dir)
   else:
     download_dir = os.path.join(download_dir, "video")
-    os.makedirs(download_dir, exist_ok=True)
+    ensure_dir_exists(download_dir)
   
   # general yt-dlp opts
   global FINAL_TITLE
@@ -1303,8 +1412,9 @@ def download_media(url, download_dir="/storage/emulated/0/YODO"):
   }
 
   try:
+    # Download media
     with YoutubeDL(YDL_OPTS) as ydl:
-      print(print_crossline())
+      print(center_title(f"{CLR_BRIGHT_GREEN}Download Media{CLR_RESET}"))
       
       # download and get info
       info = False
@@ -1358,10 +1468,30 @@ def download_media(url, download_dir="/storage/emulated/0/YODO"):
         final_filename = f"{download_dir}/{FINAL_FILENAME}"
       
       # Display downloaded file information
-      file_size = os.path.getsize(final_filename)
-      print(f"{CLR_BRIGHT_GREEN}Downloaded successfully: {CLR_LIME}{format_filename(final_filename)}\n{CLR_BRIGHT_GREEN}File size: {CLR_LIME}{file_size / (1024*1024):.2f} MB{CLR_RESET}")
+      def get_file_location(filename):
+        "Extracts and returns the file location from a full file path."
+        return filename.rsplit("/",1)[0] + "/"
+      
+      def format_filename(filename):
+        """Extracts and returns the file name from a full file path."""
+        return filename.rsplit('/', 1)[1]
+      
+      def get_file_size(filename):
+        "Calculate and returns the file size of the downloaded file."
+        file_size = os.path.getsize(filename)
+        return f"{file_size / (1024*1024):.2f} MB"
+        
+      print(
+        f"{CLR_BRIGHT_GREEN}Downloaded successfully{CLR_RESET}\n"
+        # Location
+        f"  {CLR_GREEN}Location: {CLR_LIME}{get_file_location(final_filename)}\n"
+        # Filename
+        f"  {CLR_GREEN}File: {CLR_LIME}{format_filename(final_filename)}\n"
+        # File size
+        f"  {CLR_GREEN}Size: {CLR_LIME}{get_file_size(final_filename)}{CLR_RESET}"
+      )
   except Exception as e:
-    print(print_crossline())
+    print(center_title(f"{CLR_ERROR}Exception{CLR_RESET}"))
     error = str(e).lower()
     if "no such file" in error:
       print(f"{CLR_ERROR}Failed to download the file or couldn't find the downloaded file in the system storage.\nFinal file is expected at location: '{final_filename}'{CLR_RESET}")
@@ -1373,11 +1503,12 @@ def download_media(url, download_dir="/storage/emulated/0/YODO"):
     sys.exit(1)
 
 if __name__ == "__main__":
-  PRINT_LOGO()
-  
   # initialisation function call
   preload_modules_thread = init()
   
+  PRINT_LOGO()
+  
+  # calculate startup time
   print(f"{CLR_DIM}[perf] Startup time: {(time.perf_counter()-_perf_startup_time_start)*1000:.2f} ms{CLR_RESET}")
   
   # user input handler

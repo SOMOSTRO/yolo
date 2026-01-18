@@ -160,8 +160,7 @@ THUMB_DESCRIPTION = f"""{CLR_RESET}{center_title(f'{CLR_BOLD}Thumbnail Options{C
 
 # —————————————————
 
-AUDIO_THUMB_DESCRIPTION = f"""
-{THUMB_DESCRIPTION}
+AUDIO_THUMB_DESCRIPTION = f"""{THUMB_DESCRIPTION}
 
 {CLR_BOLD}Allowed image extensions for thumbnails:{CLR_RESET}
 • {CLR_BRIGHT_GREEN}jpg{CLR_RESET}  : Most widely supported for embedding across formats and players.
@@ -177,10 +176,9 @@ AUDIO_THUMB_DESCRIPTION = f"""
 
 # —————————————————
 
-VIDEO_THUMB_DESCRIPTION = f"""
-{THUMB_DESCRIPTION}
-{CLR_BOLD}Allowed image extensions for thumbnails:{CLR_RESET}  
+VIDEO_THUMB_DESCRIPTION = f"""{THUMB_DESCRIPTION}
 
+{CLR_BOLD}Allowed image extensions for thumbnails:{CLR_RESET}
 • {CLR_BRIGHT_GREEN}jpg{CLR_RESET}  : Most widely supported (default).  
 • {CLR_BRIGHT_GREEN}png{CLR_RESET}  : Supported, but increases file size.  
 • {CLR_BRIGHT_GREEN}webp{CLR_RESET} : Downloaded from sites like YouTube; often converted internally to jpg for embedding.  
@@ -206,8 +204,7 @@ METADATA_DESCRIPTION = f"""{CLR_RESET}{center_title(f'{CLR_BOLD}Metadata Options
 
 # —————————————————
 
-AUDIO_METADATA_DESCRIPTION = f"""
-{METADATA_DESCRIPTION}
+AUDIO_METADATA_DESCRIPTION = f"""{METADATA_DESCRIPTION}
 
 {CLR_BOLD}Notes on compatibility:{CLR_RESET}
 - Most formats like {CLR_GREEN}mp3, m4a, flac{CLR_RESET} fully support metadata embedding.
@@ -219,8 +216,7 @@ AUDIO_METADATA_DESCRIPTION = f"""
 
 # —————————————————
 
-VIDEO_METADATA_DESCRIPTION = f"""
-{METADATA_DESCRIPTION}
+VIDEO_METADATA_DESCRIPTION = f"""{METADATA_DESCRIPTION}
 
 {CLR_BOLD}Notes on compatibility:{CLR_RESET}
 - Most video formats like {CLR_GREEN}mp4, mkv{CLR_RESET} support metadata embedding (title, artist, date, description, etc).  
