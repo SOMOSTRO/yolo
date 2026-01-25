@@ -24,7 +24,7 @@ move_up_1_line = "\x1b[1A"
 DEBUG = False
 VERBOSE = False
 DOWNLOAD_DIR = None
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 
 # var for tracking loader
 is_info_loaded = False
@@ -1413,9 +1413,8 @@ def download_media(url):
 
   try:
     # Download media
+    print(center_title(f"{CLR_BRIGHT_GREEN}Download Media{CLR_RESET}"))
     with YoutubeDL(YDL_OPTS) as ydl:
-      print(center_title(f"{CLR_BRIGHT_GREEN}Download Media{CLR_RESET}"))
-      
       # download and get info
       info = False
       try:
@@ -1480,6 +1479,9 @@ def download_media(url):
         "Calculate and returns the file size of the downloaded file."
         file_size = os.path.getsize(filename)
         return f"{file_size / (1024*1024):.2f} MB"
+        
+      if VERBOSE:
+        print(f"{CLR_DIM}[info] Full path: {final_filename}{CLR_RESET}")
         
       print(
         f"{CLR_BRIGHT_GREEN}Downloaded successfully{CLR_RESET}\n"
