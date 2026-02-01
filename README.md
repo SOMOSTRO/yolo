@@ -215,6 +215,9 @@ yodo [-h] [-d] [-v] [--download-dir PATH] [--version]
 - `--version`  
 → Show program version and exit
 
+- `-U, --update`  
+→ Update YODO and yt-dlp (stable), then exit
+
 **Note:**  
 
 - Debug mode automatically enables verbose output.

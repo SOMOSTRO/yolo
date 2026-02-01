@@ -33,5 +33,12 @@ def parse_cli_args(version):
     action="version",
     version=f"YODO version {version}"
   )
+  
+  # Update
+  parser.add_argument(
+    "-U", "--update",
+    action="store_true",
+    help="Update YODO and yt-dlp to the latest stable versions"
+  )
 
   return parser.parse_args()

@@ -8,7 +8,7 @@ from yodo.utils.version import get_version, get_channel
 YODO_SCRIPT = "yodo/updater/update_yodo.sh"
 YTDLP_SCRIPT = "yodo/updater/update_ytdlp.sh"
 
-def update(command: str):
+def update(command="update"):
   parts = command.lower().split()
   args = parts[1:]
 

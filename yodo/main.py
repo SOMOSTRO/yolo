@@ -24,7 +24,7 @@ move_up_1_line = "\x1b[1A"
 DEBUG = False
 VERBOSE = False
 DOWNLOAD_DIR = None
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 
 # var for tracking loader
 is_info_loaded = False
@@ -325,6 +325,7 @@ def init():
     DEBUG = args.debug
     VERBOSE = args.verbose
     DOWNLOAD_DIR = args.download_dir
+    TO_UPDATE = args.update
     
     # Rule: debug implies verbose
     if DEBUG and not VERBOSE:
@@ -332,6 +333,11 @@ def init():
       
     if DEBUG:
       print(f"{CLR_DIM}[info] CLI mode detected{CLR_RESET}")
+      
+    # call update handler if user passes '--update' CLI flag
+    if TO_UPDATE:
+      from yodo.updater.update_handler import update
+      update() # update both yodo and yt-dlp to the latest stable version
       
   # print(f"{CLR_DIM}Preload execution time: {(time.perf_counter()-start)*1000:.2f} ms{CLR_RESET}")
       
@@ -689,7 +695,10 @@ def choice_input_handler(options_file_size, options_details):
     
     if choice == "audio":
       if not ext or ext == "best":
-        ext = options_details['audio']['audio']['Audio codec']
+        try:
+          ext = options_details['audio']['audio']['Audio codec']
+        except TypeError:
+          ext = None
       ext = codec_to_ext(ext)
     else:
       if not ext:
