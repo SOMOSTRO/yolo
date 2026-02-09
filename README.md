@@ -312,7 +312,7 @@ yodo -d
 
 ## Configuration & Behavior Notes
 
-### Why is the project directory protected?
+### 1. Why is the project directory protected?
 
 *YODO updates itself using a forced Git reset. Any files inside the project directory may be **deleted during updates.***
 
@@ -320,7 +320,7 @@ yodo -d
 
 - Downloads are **never allowed** inside the YODO project folder
 
-### Why Windows is not supported?
+### 2. Why Windows is not supported?
 
 **YODO is developed and tested primarily for:**  
 
@@ -331,7 +331,7 @@ yodo -d
 
 Windows support may be added in future releases.
 
-### Why are relative paths redirected?
+### 3. Why are relative paths redirected?
 
 **This ensures:**  
 
@@ -343,7 +343,7 @@ Windows support may be added in future releases.
 
 ## Troubleshooting
 
-### Storage permission issues (Termux)
+### 1. Storage permission issues (Termux)
 
 **Run:**  
 
@@ -353,7 +353,7 @@ termux-setup-storage
 
 Restart Termux afterward.
 
-### YouTube throttling or temporary bans
+### 2. YouTube throttling or temporary bans
 
 **If downloads fail or slow down:**  
 
@@ -361,7 +361,7 @@ Restart Termux afterward.
 - Wait before retrying
 - Avoid excessive repeated requests
 
-### yt-dlp extractor errors
+### 3. yt-dlp extractor errors
 
 **These are usually site-specific issues. Try:**  
 
@@ -408,6 +408,7 @@ No. YODO runs entirely locally.
 
 - Windows is not supported
 - Some Linux distributions may behave differently
+- YODO does not expose low-level or advanced yt-dlp options
 - Cookie-based authentication is not available
 - DRM-protected content cannot be downloaded
 

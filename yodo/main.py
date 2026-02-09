@@ -24,7 +24,10 @@ move_up_1_line = "\x1b[1A"
 DEBUG = False
 VERBOSE = False
 DOWNLOAD_DIR = None
-VERSION = "1.2.2"
+VERSION = "1.2.3"
+
+# track playlist
+IS_PLAYLIST = False
 
 # var for tracking loader
 is_info_loaded = False
@@ -555,7 +558,7 @@ def fetch_details(url, options):
               print(f"{CLR_DIM}[debug] No valid formats found for option: {label}{CLR_RESET}")
           
           if not chosen:
-            options_file_size[label] = f"{CLR_ERROR}Not available{CLR_RESET}"
+            options_file_size[label] = f"{CLR_ERROR}Not Available{CLR_RESET}"
             continue
   
           total_size = 0
@@ -609,7 +612,7 @@ def fetch_details(url, options):
         except Exception as e:
           if DEBUG:
             print(f"{CLR_DIM}[debug] Skipping incomplete formats for '{label}'{CLR_RESET}")
-          options_file_size[label] = f"{CLR_ERROR}Not available{CLR_RESET}"
+          options_file_size[label] = f"{CLR_ERROR}Not Available{CLR_RESET}"
       
       # debugging
       if DEBUG:
@@ -757,15 +760,17 @@ def choice_input_handler(options_file_size, options_details):
   
   choice_description = {'low': "", 'medium': "", 'high': "", 'audio': ""}
   for choice in choice_description.keys():
+    # apply strike through style if the choice is Not Available
+    _strike = CLR_STRIKETHROUGH if options_file_size[choice] == f"{CLR_ERROR}Not Available{CLR_RESET}" else ""
     if choice == 'audio':
       choice_description[choice] = f"""
-  • {CLR_INPUT}'{choice}'{CLR_RESET} = {CLR_ITALIC}{CLR_BOLD}high quality audio only{CLR_RESET}  ({CLR_ORANGE}Size: {CLR_RESET}{options_file_size[choice]}){f"""
+  • {CLR_INPUT}{_strike}'{choice}'{CLR_RESET} = {CLR_ITALIC}{CLR_BOLD}high quality audio only{CLR_RESET}  ({CLR_ORANGE}Size: {CLR_RESET}{options_file_size[choice]}){f"""
       {CLR_BRIGHT_GREEN}Details of audio:
         {details_formated[choice]['audio']}{CLR_RESET}""" if details_formated[choice]['audio'] else ''} 
       {move_up_1_line}"""
     else:
       choice_description[choice] = f"""
-  • {CLR_INPUT}'{choice}'{CLR_RESET} = {CLR_ITALIC}{CLR_BOLD}{choice} quality audio and video{CLR_RESET}  ({CLR_ORANGE}Size: {CLR_RESET}{options_file_size[choice]}){f"""
+  • {CLR_INPUT}{_strike}'{choice}'{CLR_RESET} = {CLR_ITALIC}{CLR_BOLD}{choice} quality audio and video{CLR_RESET}  ({CLR_ORANGE}Size: {CLR_RESET}{options_file_size[choice]}){f"""
       {CLR_BRIGHT_GREEN}Details of video:
         {details_formated[choice]['video']}
       {CLR_BRIGHT_GREEN}Details of audio:
@@ -818,10 +823,15 @@ def choice_input_handler(options_file_size, options_details):
       QUALITY_LABELS_MAP = {
         "high": "bestaudio",
         "medium": "bestaudio[abr<=128]/bestaudio",
-        "low": "bestaudio[abr<=64]/worstaudio"
+        "low": "worstaudio[abr<=64]/worstaudio"
       }
       
       if value in QUALITY_LABELS_MAP:
+        # auto decide audio format based on the choice user selected
+        if options_details[value]['audio']:
+          options_attributes["audio"]["format"] = codec_to_ext(options_details[value]['audio']['Audio codec'])
+        else:
+          options_attributes["audio"]["format"] = codec_to_ext(None) # use default
         return QUALITY_LABELS_MAP[value]
       elif value.isdigit():
         return f"bestaudio[abr<={int(value)}]/bestaudio"
@@ -835,13 +845,13 @@ def choice_input_handler(options_file_size, options_details):
       QUALITY_FORMAT = {
         "low": 
           {
-            "video": "best[height<=360]/best[height<=480]/bestvideo[height<=480]+bestaudio[ext=m4a]/best",
-            "audio": "bestaudio[ext=m4a]"
+            "video": "(bestvideo[height<=360]/bestvideo[height<=480])+(worstaudio[abr<=64]/worstaudio)",
+            "audio": "(worstaudio[abr<=64]/worstaudio)"
           },
         "medium": 
           {
-            "video": "bestvideo[height<=720]+bestaudio[abr<=128]/bestvideo[height<=1080]+bestaudio[abr<=128]",
-            "audio": "bestaudio[abr<=128]"
+            "video": "(bestvideo[height<=720]/bestvideo[height<=1080])+(bestaudio[abr<=128]/bestaudio)",
+            "audio": "(bestaudio[abr<=128]/bestaudio)"
           },
         "high": 
           {
@@ -967,7 +977,10 @@ def choice_input_handler(options_file_size, options_details):
       raise ValueError(f"Invalid value(subtitles: '{lang}').\n{SUBTITLES_DESCRIPTION}")
     
     # By default set audio format as best
-    options_attributes["audio"]["format"] = codec_to_ext(options_details[user_input.split(" ", 1)[0]]['audio']['Audio codec'])
+    try:
+      options_attributes["audio"]["format"] = codec_to_ext(options_details[user_input.split(" ", 1)[0]]['audio']['Audio codec'])
+    except TypeError:
+      options_attributes["audio"]["format"] = codec_to_ext(None) # use default
     
     # set metadata=false for unsupported audio formats (default)
     if FINAL_EXT in ('wav'):
@@ -1124,7 +1137,7 @@ def choice_input_handler(options_file_size, options_details):
     set_FINAL_FILENAME(choice)
     
     # if choice is available
-    if options_file_size[choice] != f"{CLR_ERROR}Not available{CLR_RESET}":
+    if options_file_size[choice] != f"{CLR_ERROR}Not Available{CLR_RESET}":
       # receive confirmation message
       ok, error_msg = opt_attr_handler(user_input)
       
@@ -1216,9 +1229,9 @@ def download_media(url):
   # Categories
   options = {
     # try 360p, else 480p (muxed). then fallback to < 480p merged video+audio
-    "low": "best[height<=360]/best[height<=480]/bestvideo[height<=480]+bestaudio[ext=m4a]",
+    "low": "(bestvideo[height<=360]/bestvideo[height<=480])+(worstaudio[abr<=64]+worstaudio)",
     # try 720p, else 1080p. merged video+audio
-    "medium": "bestvideo[height<=720]+bestaudio[abr<=128]/bestvideo[height<=1080]+bestaudio[abr<=128]",
+    "medium": "(bestvideo[height<=720]/bestvideo[height<=1080])+(bestaudio[abr<=128]+bestaudio)",
     # high = best available
     "high": "bestvideo+bestaudio/best",
     # audio only
