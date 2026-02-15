@@ -55,7 +55,8 @@ def update(command="update"):
     _run_script(YODO_SCRIPT)
     
     print(f"Updated YODO version: {CLR_GREEN}{get_version()} ({get_channel()}){CLR_RESET}")
-    print(print_crossline("–"))
+    print(print_crossline())
+    print()
 
   # update yt-dlp
   if update_ytdlp:
@@ -63,11 +64,12 @@ def update(command="update"):
     print(f"{CLR_BRIGHT_GREEN}• Updating yt-dlp ({'nightly' if nightly else 'stable'})...{CLR_RESET}")
     args = ["--nightly"] if nightly else []
     _run_script(YTDLP_SCRIPT, args)
-    print(print_crossline("–"))
+    print(print_crossline())
+    print()
 
-  print(f"\n{CLR_BRIGHT_GREEN}Update process finished.{CLR_RESET}")
+  print(f"{CLR_BRIGHT_GREEN}Update process finished.{CLR_RESET}")
+  print(f"{CLR_BRIGHT_GREEN}Start {CLR_BOLD}yodo{CLR_RESET_BOLD} again to experience the new version.{CLR_RESET}\n")
   print("Exiting...")
-  print(f"\n({CLR_BRIGHT_GREEN}Start {CLR_BOLD}yodo{CLR_RESET_BOLD} again to experience the new version...{CLR_RESET})")
   sys.exit()
 
 

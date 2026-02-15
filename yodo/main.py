@@ -24,7 +24,7 @@ move_up_1_line = "\x1b[1A"
 DEBUG = False
 VERBOSE = False
 DOWNLOAD_DIR = None
-VERSION = "1.2.3"
+VERSION = "1.2.4"
 
 # track playlist
 IS_PLAYLIST = False
@@ -58,10 +58,29 @@ def PRINT_LOGO():
   {_6}   |_|   \____/ |_____/  \____/  {CLR_RESET}Version: {VERSION}
   """)
 
+# Helper functions
 # print_space
 def p_s(count, char = " "):
   """Returns number of spaces (char)."""
   return char * int(count)
+  
+def log_debug(*args):
+  "Print debug message."
+  print(f"{CLR_DIM}[debug]", *args, CLR_RESET)
+  
+def log_timing(message, duration_seconds):
+  """Print formatted execution duration."""
+  if duration_seconds < 0:
+    raise ValueError("duration_seconds must be non-negative")
+
+  if duration_seconds >= 60:
+    formatted_duration = f"{duration_seconds / 60:.2f} m"
+  elif duration_seconds >= 1:
+    formatted_duration = f"{duration_seconds:.2f} s"
+  else:
+    formatted_duration = f"{duration_seconds * 1000:.2f} ms"
+
+  print(f"{CLR_DIM}[perf] {message}: {formatted_duration}{CLR_RESET}")
 
 # function for convert bytes to human-readable MB/GB string.
 def get_size_str(size_bytes):
@@ -161,8 +180,8 @@ def sanitize_filename(title, max_bytes=240):
   title = _ytdlp_sanitize(title)
   
   if DEBUG:
-    print(f"{CLR_DIM}[debug] sanitized filename: {title}")
-    print(f"[perf] Filename sanitization: {(time.perf_counter()-sfn_start)*1000:.2f} ms{CLR_RESET}")
+    log_debug(f"sanitized filename: {title}")
+    log_timing("Filename sanitization", (time.perf_counter()-sfn_start))
   
   # return sanitized file name
   return title
@@ -221,11 +240,14 @@ def resolve_download_dir(cli_dir = None):
       final = os.path.join(safe_base, "YODO")
 
   if DEBUG:
-    print(f"{CLR_DIM}[debug] Download directory: '{final}'{CLR_RESET}")
+    log_debug(f"Download directory: '{final}'")
   
   # Final safety check
   if is_inside_project(final):
     print(f"{CLR_ERROR}Runtime Error: Download directory cannot be inside YODO project directory{CLR_RESET}")
+    print("Exiting...")
+    sys.exit()
+    
   
   # Ensure DOWNLOAD_DIR is valid and accessible
   ensure_dir_exists(final)
@@ -239,6 +261,7 @@ def ensure_dir_exists(download_dir):
     print(center_title(f"{CLR_ERROR}Exception{CLR_RESET}"))
     print(message)
     print(print_crossline())
+    print("Exiting...")
     sys.exit(1)
   
   try:
@@ -272,45 +295,14 @@ def init():
   """
   Initialize application state and start background preloading.
 
-  • Starts a daemon thread to lazily preload required modules
   • Parses command-line arguments
+  • Starts a daemon thread to lazily preload required modules
   • Exposes the Thread class globally
 
   Returns:
       threading.Thread: The background module preloading thread.
   """
   # start = time.perf_counter()
-  global Thread
-  import importlib
-  from threading import Thread
-  
-  # lazy preloading (background module preloading) logic
-  modules_to_preload = (
-    "re",
-    "shlex",
-    "unicodedata",
-    "urllib.parse",
-    "yt_dlp",
-    "yt_dlp.utils",
-    "yt_dlp.extractor",
-    "yt_dlp.extractor.common",
-    "yt_dlp.extractor.youtube",
-    "yodo.updater.update_handler",
-    "yodo.utils.yodo_documentation",
-    "yodo.utils.prompt_validator",
-    "yodo.utils.terminal_utils"
-  )
-  
-  def preload_modules():
-    for module in modules_to_preload:
-      try:
-        importlib.import_module(module)
-      except Exception as e:
-        print(f"{CLR_WARNING}Failed to preload '{module}': {CLR_ERROR}{e}{CLR_RESET}")
-  
-  # start background preload
-  preload_modules_thread = Thread(target=preload_modules, daemon=True)
-  preload_modules_thread.start()
   
   # optimization: parse arguments only if user has given atleast one argument
   if len(sys.argv) > 1:
@@ -323,7 +315,7 @@ def init():
     
     args = parse_cli_args(VERSION)
     
-    #print(f"{CLR_DIM}[perf] parse cli arguments: {(time.perf_counter()-_start)*1000:.2f} ms{CLR_RESET}")
+    #log_timing("parse cli arguments", (time.perf_counter()-_start))
     
     DEBUG = args.debug
     VERBOSE = args.verbose
@@ -342,6 +334,38 @@ def init():
       from yodo.updater.update_handler import update
       update() # update both yodo and yt-dlp to the latest stable version
       
+  global Thread
+  import importlib
+  from threading import Thread
+  
+  # lazy preloading (background module preloading) logic
+  modules_to_preload = (
+    "re",
+    "shlex",
+    "unicodedata",
+    "urllib.parse",
+    "yt_dlp",
+    "yt_dlp.utils",
+    "yt_dlp.extractor",
+    "yt_dlp.extractor.common",
+    "yt_dlp.extractor.youtube",
+    #"yodo.updater.update_handler",
+    "yodo.utils.yodo_documentation",
+    "yodo.utils.prompt_validator",
+    "yodo.utils.terminal_utils"
+  )
+  
+  def preload_modules():
+    for module in modules_to_preload:
+      try:
+        importlib.import_module(module)
+      except Exception as e:
+        print(f"{CLR_WARNING}Failed to preload '{module}': {CLR_ERROR}{e}{CLR_RESET}")
+    
+  # start background preload
+  preload_modules_thread = Thread(target=preload_modules, daemon=True)
+  preload_modules_thread.start()
+  
   # print(f"{CLR_DIM}Preload execution time: {(time.perf_counter()-start)*1000:.2f} ms{CLR_RESET}")
       
   return preload_modules_thread
@@ -409,14 +433,12 @@ def url_input_handler():
     except NameError:
       from urllib.parse import urlparse
       
-    # import YODO updater.update_handler
-    try:
-      update_handler
-    except NameError:
-      from yodo.updater import update_handler
-      
     # update command handler
     if user_input.lower().startswith("update"):
+      try:
+        update_handler
+      except NameError:
+        from yodo.updater import update_handler
       update_handler.update(user_input)
       continue
     
@@ -460,7 +482,7 @@ def fetch_details(url, options):
 
   Returns:
     tuple:
-      (options_file_size, options_details) where:
+      (options_file_size, options_details, info) where:
         - options_file_size maps each option to its estimated size
         - options_details contains audio/video format attributes
 
@@ -482,7 +504,7 @@ def fetch_details(url, options):
     print(center_title(f"{CLR_BRIGHT_BLUE}Fetch Media Information{CLR_RESET}"))
   
   try:
-    # fetch info yt-dlp options
+    # YDL options for fetching metadata
     INFO_YDL_OPTS = {
       "verbose": VERBOSE,
       "quiet": not VERBOSE,
@@ -497,6 +519,7 @@ def fetch_details(url, options):
       },
       "js_runtime": "deno"
     }
+    
     with YoutubeDL(INFO_YDL_OPTS) as ydl:
       # track loading time of fetching info
       if DEBUG:
@@ -515,7 +538,7 @@ def fetch_details(url, options):
       
       if DEBUG:
         # reset color styles for output in debug mode
-        print(f"{CLR_DIM}[perf] Fetch metadata: {(time.perf_counter() - info_load_time):.2f} s{CLR_RESET}")
+        log_timing("Fetch metadata", (time.perf_counter() - info_load_time))
       
       # get video information and print
       formats = info.get("formats", None)
@@ -553,9 +576,9 @@ def fetch_details(url, options):
           if DEBUG:
             _chosen_formats = [f.get("format_id") for f in chosen]
             if _chosen_formats:
-              print(f"{CLR_DIM}[debug] {label} chosen formats:", _chosen_formats, CLR_RESET)
+              log_debug(label, "chosen formats:", _chosen_formats)
             else:
-              print(f"{CLR_DIM}[debug] No valid formats found for option: {label}{CLR_RESET}")
+              log_debug("No valid formats found for option:", label)
           
           if not chosen:
             options_file_size[label] = f"{CLR_ERROR}Not Available{CLR_RESET}"
@@ -611,12 +634,12 @@ def fetch_details(url, options):
             options_file_size[label] = f"{size_str} ({' + '.join(part_sizes)})"
         except Exception as e:
           if DEBUG:
-            print(f"{CLR_DIM}[debug] Skipping incomplete formats for '{label}'{CLR_RESET}")
+            log_debug(f"Skipping incomplete formats for '{label}'")
           options_file_size[label] = f"{CLR_ERROR}Not Available{CLR_RESET}"
       
       # debugging
       if DEBUG:
-        print(f"{CLR_DIM}[perf] Format selection loop: {(time.perf_counter()-for_start)*1000:.2f} ms{CLR_RESET}")
+        log_timing("Format selection loop", (time.perf_counter()-for_start))
       
   except Exception as e:
     error = str(e).lower()
@@ -717,7 +740,7 @@ def choice_input_handler(options_file_size, options_details):
     FINAL_FILENAME = FINAL_TITLE
     FINAL_FILENAME = f"{FINAL_FILENAME}.{ext}"
     if DEBUG:
-      print(f"{CLR_DIM}[debug] FINAL_FILENAME: {FINAL_FILENAME}{CLR_RESET}")
+      log_debug(f"FINAL_FILENAME: {FINAL_FILENAME}")
   
   
   details = {'low': {'video': "", 'audio': ""}, 'medium': {'video': "", 'audio': ""}, 'high': {'video': "", 'audio': ""}, 'audio': {'video': "", 'audio': ""}}
@@ -1142,7 +1165,7 @@ def choice_input_handler(options_file_size, options_details):
       ok, error_msg = opt_attr_handler(user_input)
       
       if DEBUG:
-        print(f"{CLR_DIM}[debug] options_attributes:", options_attributes, CLR_RESET)
+        log_debug("options_attributes:", options_attributes)
       
       # print error message
       if not ok:
@@ -1224,10 +1247,9 @@ def download_media(url):
   """
   
   download_dir = resolve_download_dir(DOWNLOAD_DIR)
-    
   
   # Categories
-  options = {
+  OPTIONS = {
     # try 360p, else 480p (muxed). then fallback to < 480p merged video+audio
     "low": "(bestvideo[height<=360]/bestvideo[height<=480])+(worstaudio[abr<=64]+worstaudio)",
     # try 720p, else 1080p. merged video+audio
@@ -1238,8 +1260,7 @@ def download_media(url):
     "audio": "bestaudio"
   }
   
-  
-  options_file_size, options_details = fetch_details(url, options)
+  options_file_size, options_details = fetch_details(url, OPTIONS)
   
   result = choice_input_handler(options_file_size, options_details)
   choice = result["choice"]
@@ -1254,7 +1275,7 @@ def download_media(url):
     # audio quality format selection
     audio_quality = options_attributes["audio"]["quality"]
     # set audio_quality to global options dict
-    options["audio"] = audio_quality
+    OPTIONS["audio"] = audio_quality
     
     # FFmpegExtractAudio key
     key_extract_audio = [{
@@ -1322,9 +1343,9 @@ def download_media(url):
   else:
     # set custom quality/format for video
     if options_attributes["video"]["quality"]:
-      options[choice] = options_attributes["video"]["quality"]
+      OPTIONS[choice] = options_attributes["video"]["quality"]
       if DEBUG:
-        print(f"{CLR_DIM}Quality format: { options_attributes["video"]["quality"]}{CLR_RESET}")
+        log_debug(f"Quality format: { options_attributes["video"]["quality"]}")
     
     # FFmpegVideoRemuxer key
     key_remux_video = [{
@@ -1406,8 +1427,9 @@ def download_media(url):
   
   # general yt-dlp opts
   global FINAL_TITLE
+  
   YDL_OPTS = {
-    "format": options[choice],
+    "format": OPTIONS[choice],
     "outtmpl": os.path.join(download_dir, f"{FINAL_TITLE}.%(ext)s"),  # Download path
     "noplaylist": True,  # Download only single item, not whole playlist
     "overwrites": False,
@@ -1434,6 +1456,7 @@ def download_media(url):
   }
 
   try:
+    _download_media_start = time.perf_counter() # to measure total download time (duration)
     # Download media
     print(center_title(f"{CLR_BRIGHT_GREEN}Download Media{CLR_RESET}"))
     with YoutubeDL(YDL_OPTS) as ydl:
@@ -1504,6 +1527,9 @@ def download_media(url):
         
       if VERBOSE:
         print(f"{CLR_DIM}[info] Full path: {final_filename}{CLR_RESET}")
+      
+      if DEBUG:
+        log_timing("Time taken to download", time.perf_counter()-_download_media_start)
         
       print(
         f"{CLR_BRIGHT_GREEN}Downloaded successfully{CLR_RESET}\n"
@@ -1532,8 +1558,8 @@ if __name__ == "__main__":
   
   PRINT_LOGO()
   
-  # calculate startup time
-  print(f"{CLR_DIM}[perf] Startup time: {(time.perf_counter()-_perf_startup_time_start)*1000:.2f} ms{CLR_RESET}")
+  # measure startup time
+  log_timing("Startup time", (time.perf_counter()-_perf_startup_time_start))
   
   # user input handler
   url = url_input_handler()

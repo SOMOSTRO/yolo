@@ -1,4 +1,5 @@
 .env 
 update_logs.txt
 git_document.txt
-__pycache__
+debug/
+__pycache__/

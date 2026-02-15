@@ -30,8 +30,10 @@ else
   exit 1
 fi
 
-# Clear terminal screen
-clear
+# Clear terminal screen if the no of args is 0
+if [ "$#" -eq 0 ]; then
+  clear
+fi
 
 # Run YODO as a module
 exec "$PY" -m yodo.main "$@"

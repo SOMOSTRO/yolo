@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Acceptable argument(s):
-#   --nightly : To set yt-dlp channel=nightly
+#   --nightly : To set yt-dlp channel as nightly
 
 # Colors
 if [ -t 1 ]; then
@@ -38,7 +38,6 @@ else
     CURRENT_VERSION="not installed"
 fi
 
-echo -e "${CLR_BLUE}Updating yt-dlp...${CLR_RESET}"
 echo -e "${CLR_YELLOW}Current version: ${CURRENT_VERSION}${CLR_RESET}\n"
 
 # Update logic 
